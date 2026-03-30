@@ -7,6 +7,14 @@
 
 Built on [Thermal Budget Annealing (TBA)](https://github.com/Chrislysen/Constrained-ML-Deployment), a research optimizer for crash-heavy constrained deployment spaces.
 
+<p align="center">
+  <img src="demo.gif" alt="deploy-agent demo" width="800" />
+</p>
+
+<p align="center">
+  <img src="demo.png" alt="deploy-agent dashboard screenshot" width="800" />
+</p>
+
 ---
 
 ## What it does
