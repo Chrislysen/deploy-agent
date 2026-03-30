@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>deploy-agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root {
+    --bg:       #08090d;
+    --bg-sub:   #0d0f14;
+    --surface:  #12141c;
+    --surface2: #181b26;
+    --border:   #1f2233;
+    --border-h: #2a2e42;
+    --text:     #e8eaf0;
+    --text-sub: #9197ab;
+    --dim:      #5c6280;
+    --green:    #34d399;
+    --green-bg: rgba(52,211,153,.08);
+    --green-bd: rgba(52,211,153,.25);
+    --red:      #f87171;
+    --red-bg:   rgba(248,113,113,.06);
+    --yellow:   #fbbf24;
+    --yellow-bg:rgba(251,191,36,.06);
+    --blue:     #60a5fa;
+    --blue-v:   #818cf8;
+    --accent:   #818cf8;
+    --accent-g: linear-gradient(135deg, #818cf8, #60a5fa);
+    --radius:   10px;
+    --mono:     'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ---- scrollbar ---- */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-h); border-radius: 3px; }
+
+  /* ---- header ---- */
+  .header {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .875rem 2rem;
+    background: rgba(8,9,13,.82);
+    backdrop-filter: blur(16px) saturate(1.4);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { display: flex; align-items: center; gap: .65rem; }
+  .logo-icon {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: var(--accent-g);
+    display: grid; place-items: center;
+    font-weight: 800; font-size: .8rem; color: #fff;
+  }
+  .logo h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: -.02em; }
+  .logo span { font-size: .7rem; font-weight: 500; color: var(--dim); background: var(--surface2);
+               padding: .15rem .5rem; border-radius: 4px; border: 1px solid var(--border); margin-left: .25rem; }
+  .conn-badge {
+    display: flex; align-items: center; gap: .4rem;
+    font-size: .75rem; color: var(--dim); font-family: var(--mono);
+  }
+  .conn-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--dim);
+    box-shadow: 0 0 0 2px rgba(92,98,128,.2);
+    transition: all .3s;
+  }
+  .conn-dot.live { background: var(--green); box-shadow: 0 0 8px rgba(52,211,153,.5), 0 0 0 2px rgba(52,211,153,.15); }
+  .conn-dot.done { background: var(--blue); box-shadow: 0 0 8px rgba(96,165,250,.4), 0 0 0 2px rgba(96,165,250,.15); }
+
+  /* ---- layout ---- */
+  .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+  .grid { display: grid; gap: 1rem; }
+  .g1   { grid-template-columns: 1fr; }
+  .g2   { grid-template-columns: 1fr 1fr; }
+  .g3   { grid-template-columns: 1fr 1fr 1fr; }
+  .g4   { grid-template-columns: repeat(4, 1fr); }
+
+  /* ---- card ---- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    transition: border-color .2s;
+  }
+  .card:hover { border-color: var(--border-h); }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+  .card-title {
+    font-size: .8rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--text-sub);
+  }
+  .card-badge {
+    font-size: .65rem; font-family: var(--mono); color: var(--dim);
+    padding: .15rem .45rem; border-radius: 4px;
+    background: var(--surface2); border: 1px solid var(--border);
+  }
+
+  /* ---- form ---- */
+  .form-row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: end; }
+  .form-group { flex: 1; min-width: 130px; }
+  .form-group label {
+    display: block; font-size: .7rem; font-weight: 500; color: var(--dim);
+    text-transform: uppercase; letter-spacing: .05em; margin-bottom: .35rem;
+  }
+  .form-group input, .form-group select {
+    width: 100%; padding: .55rem .75rem;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+    color: var(--text); font-size: .85rem; font-family: var(--mono);
+    transition: border-color .15s, box-shadow .15s;
+    outline: none;
+  }
+  .form-group input:focus, .form-group select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(129,140,248,.12);
+  }
+  .form-group input::placeholder { color: var(--dim); }
+  .btn {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .6rem 1.5rem; border: none; border-radius: 7px;
+    font-size: .85rem; font-weight: 600; cursor: pointer;
+    color: #fff; background: var(--accent-g);
+    box-shadow: 0 2px 12px rgba(129,140,248,.25);
+    transition: transform .1s, box-shadow .15s, opacity .15s;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(129,140,248,.35); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: .4; cursor: default; transform: none; box-shadow: none; }
+  .btn svg { width: 16px; height: 16px; }
+
+  /* ---- progress ---- */
+  .progress-section { margin-top: .25rem; }
+  .progress-info {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: .5rem;
+  }
+  .progress-info .label { font-size: .85rem; font-weight: 600; }
+  .progress-info .counter { font-family: var(--mono); font-size: .8rem; color: var(--text-sub); }
+  .progress-track {
+    height: 8px; background: var(--bg); border-radius: 4px;
+    overflow: hidden; position: relative;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 4px;
+    background: var(--accent-g);
+    transition: width .4s cubic-bezier(.4,0,.2,1);
+    position: relative;
+  }
+  .progress-fill::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.15), transparent);
+    animation: shimmer 2s infinite;
+  }
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+  /* ---- stat cards ---- */
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    display: flex; flex-direction: column; gap: .25rem;
+  }
+  .stat-card .stat-label {
+    font-size: .65rem; font-weight: 500; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--dim);
+  }
+  .stat-card .stat-value {
+    font-size: 1.65rem; font-weight: 800; letter-spacing: -.03em;
+    font-family: var(--mono);
+    background: linear-gradient(135deg, var(--text), var(--text-sub));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .stat-card .stat-sub { font-size: .72rem; color: var(--text-sub); font-family: var(--mono); }
+  .stat-card.green { border-color: var(--green-bd); background: var(--green-bg); }
+  .stat-card.green .stat-value { background: linear-gradient(135deg, var(--green), #a7f3d0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat-card.red { border-color: rgba(248,113,113,.2); background: var(--red-bg); }
+  .stat-card.red .stat-value { background: linear-gradient(135deg, var(--red), #fca5a5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+  /* ---- best config ---- */
+  .best-card {
+    border-color: var(--green-bd) !important;
+    background: linear-gradient(135deg, var(--green-bg), transparent) !important;
+    position: relative; overflow: hidden;
+  }
+  .best-card::before {
+    content: ''; position: absolute; top: -1px; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+  }
+  .best-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; }
+  .best-metric { text-align: center; padding: .75rem .5rem; background: rgba(52,211,153,.04); border-radius: 8px; }
+  .best-metric .bm-value {
+    font-size: 1.1rem; font-weight: 700; color: var(--green);
+    font-family: var(--mono);
+  }
+  .best-metric .bm-label { font-size: .65rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: .05em; margin-top: .2rem; }
+
+  /* ---- charts ---- */
+  .chart-wrap { height: 240px; position: relative; }
+
+  /* ---- table ---- */
+  .table-scroll { max-height: 420px; overflow-y: auto; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+  thead { position: sticky; top: 0; z-index: 1; }
+  th {
+    text-align: left; padding: .6rem .75rem;
+    font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--dim); background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  th:first-child { border-radius: 8px 0 0 0; }
+  th:last-child { border-radius: 0 8px 0 0; }
+  td {
+    padding: .55rem .75rem; border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: .78rem;
+    transition: background .15s;
+  }
+  tr:hover td { background: var(--surface2); }
+  tr.row-ok td:last-child { color: var(--green); font-weight: 600; }
+  tr.row-crash td { color: var(--red); opacity: .7; }
+  tr.row-crash td:last-child { opacity: 1; font-weight: 600; }
+  tr.row-infeas td:last-child { color: var(--yellow); font-weight: 600; }
+  tr.row-best { background: var(--green-bg) !important; }
+  tr.row-best td { background: transparent !important; color: var(--green); font-weight: 500; }
+  .status-pill {
+    display: inline-block; padding: .1rem .5rem; border-radius: 4px;
+    font-size: .7rem; font-weight: 600; letter-spacing: .03em;
+  }
+  .pill-ok { background: rgba(52,211,153,.12); color: var(--green); }
+  .pill-crash { background: rgba(248,113,113,.12); color: var(--red); }
+  .pill-infeas { background: rgba(251,191,36,.1); color: var(--yellow); }
+
+  /* ---- animate rows in ---- */
+  @keyframes rowIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .anim-in { animation: rowIn .25s ease-out; }
+
+  /* ---- empty state ---- */
+  .empty-state {
+    text-align: center; padding: 4rem 2rem; color: var(--dim);
+  }
+  .empty-state .es-icon { font-size: 2.5rem; margin-bottom: .75rem; opacity: .35; }
+  .empty-state p { font-size: .85rem; max-width: 320px; margin: 0 auto; }
+
+  /* ---- sections ---- */
+  .section { margin-top: 1.25rem; }
+  .section-title {
+    font-size: .7rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--dim); margin-bottom: .75rem;
+    padding-left: .15rem;
+  }
+
+  /* ---- responsive ---- */
+  @media (max-width: 900px) {
+    .container { padding: 1rem; }
+    .header { padding: .75rem 1rem; }
+    .g2, .g3, .g4 { grid-template-columns: 1fr 1fr; }
+    .form-row { flex-direction: column; }
+  }
+  @media (max-width: 550px) {
+    .g2, .g3, .g4 { grid-template-columns: 1fr; }
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">DA</div>
+    <h1>deploy-agent</h1>
+    <span>v0.1</span>
+  </div>
+  <div class="conn-badge">
+    <div class="conn-dot" id="conn-dot"></div>
+    <span id="ws-status">idle</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Launch Card -->
+  <div class="card" id="launch-card">
+    <div class="card-header">
+      <span class="card-title">New Optimisation</span>
+      <span class="card-badge">TBA Hybrid</span>
+    </div>
+    <form id="launch-form">
+      <div class="form-row">
+        <div class="form-group" style="flex:1.5">
+          <label>Model</label>
+          <input id="f-model" value="resnet50" placeholder="torchvision model name" required />
+        </div>
+        <div class="form-group">
+          <label>Max Latency</label>
+          <input id="f-latency" placeholder="e.g. 20ms" />
+        </div>
+        <div class="form-group">
+          <label>Max Memory</label>
+          <input id="f-memory" placeholder="e.g. 512MB" />
+        </div>
+        <div class="form-group" style="flex:.7">
+          <label>Device</label>
+          <select id="f-gpu">
+            <option value="auto">auto</option>
+            <option value="cuda">cuda</option>
+            <option value="cpu">cpu</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:.6">
+          <label>Budget</label>
+          <input id="f-budget" type="number" value="25" min="1" max="200" />
+        </div>
+        <div class="form-group" style="flex:0 0 auto; min-width: auto;">
+          <label>&nbsp;</label>
+          <button type="submit" class="btn" id="btn-go">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Run
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Progress (hidden until job starts) -->
+  <div class="card hidden" id="progress-card">
+    <div class="progress-section">
+      <div class="progress-info">
+        <span class="label" id="job-title">Optimising...</span>
+        <span class="counter"><span id="trial-num">0</span> / <span id="trial-total">0</span> trials</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="grid g4 hidden section" id="stats-section">
+    <div class="stat-card" id="stat-total">
+      <span class="stat-label">Trials</span>
+      <span class="stat-value" id="sv-total">0</span>
+      <span class="stat-sub" id="ss-total">of 0</span>
+    </div>
+    <div class="stat-card green" id="stat-feasible">
+      <span class="stat-label">Feasible</span>
+      <span class="stat-value" id="sv-feasible">0</span>
+      <span class="stat-sub" id="ss-feasible">-</span>
+    </div>
+    <div class="stat-card red" id="stat-crashed">
+      <span class="stat-label">Crashed</span>
+      <span class="stat-value" id="sv-crashed">0</span>
+      <span class="stat-sub" id="ss-crashed">-</span>
+    </div>
+    <div class="stat-card" id="stat-best-qps">
+      <span class="stat-label">Best Throughput</span>
+      <span class="stat-value" id="sv-qps">-</span>
+      <span class="stat-sub" id="ss-qps">&nbsp;</span>
+    </div>
+  </div>
+
+  <!-- Best Config -->
+  <div class="card best-card hidden section" id="best-card">
+    <div class="card-header">
+      <span class="card-title">Best Feasible Configuration</span>
+      <span class="card-badge" id="best-badge">-</span>
+    </div>
+    <div class="best-metrics" id="best-grid"></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid g2 hidden section" id="charts-section">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Latency &amp; Throughput</span>
+        <span class="card-badge">live</span>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-perf"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Peak Memory</span>
+        <span class="card-badge">MB</span>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-mem"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Throughput chart -->
+  <div class="card hidden section" id="scatter-section">
+    <div class="card-header">
+      <span class="card-title">Latency vs Throughput</span>
+      <span class="card-badge">scatter</span>
+    </div>
+    <div class="chart-wrap"><canvas id="chart-scatter"></canvas></div>
+  </div>
+
+  <!-- Trial Log -->
+  <div class="card hidden section" id="table-card">
+    <div class="card-header">
+      <span class="card-title">Trial Log</span>
+      <span class="card-badge" id="table-count">0 rows</span>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Backend</th><th>Quantization</th><th>Batch</th>
+            <th>Threads</th><th>Latency p95</th><th>Memory</th><th>Throughput</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="trial-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Empty state (shown initially) -->
+  <div class="empty-state" id="empty-state">
+    <div class="es-icon">&#x26A1;</div>
+    <p>Configure your model and constraints above, then hit <strong>Run</strong> to start the optimisation search.</p>
+  </div>
+
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const show = el => { if (typeof el === 'string') el = $(el); el.classList.remove('hidden'); };
+const hide = el => { if (typeof el === 'string') el = $(el); el.classList.add('hidden'); };
+
+let ws = null, perfChart = null, memChart = null, scatterChart = null;
+let trialData = [], bestCfg = null, bestObj = null;
+
+/* ---- unit parsers ---- */
+function parseUnit(raw, tbl) {
+  if (!raw) return null;
+  const m = raw.trim().toLowerCase().match(/^([\d.]+)\s*(ms|s|us|kb|mb|gb|tb)?$/);
+  if (!m) return parseFloat(raw);
+  return parseFloat(m[1]) * (tbl[m[2]] || 1);
+}
+const latTbl = { ms:1, s:1000, us:0.001 };
+const memTbl = { kb:1/1024, mb:1, gb:1024, tb:1048576 };
+
+/* ---- Chart.js defaults ---- */
+Chart.defaults.color = '#5c6280';
+Chart.defaults.borderColor = '#1f2233';
+Chart.defaults.font.family = "'Inter', system-ui";
+Chart.defaults.font.size = 11;
+Chart.defaults.plugins.legend.labels.boxWidth = 10;
+Chart.defaults.plugins.legend.labels.padding = 16;
+
+function initCharts() {
+  if (perfChart) { perfChart.destroy(); memChart.destroy(); scatterChart.destroy(); }
+
+  perfChart = new Chart($('#chart-perf'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Latency p95 (ms)', data: [], yAxisID: 'y',
+          borderColor: '#f87171', backgroundColor: 'rgba(248,113,113,.08)',
+          fill: true, tension: .35, pointRadius: 4, pointHoverRadius: 6,
+          pointBackgroundColor: '#f87171', borderWidth: 2,
+        },
+        {
+          label: 'Throughput (qps)', data: [], yAxisID: 'y1',
+          borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.08)',
+          fill: true, tension: .35, pointRadius: 4, pointHoverRadius: 6,
+          pointBackgroundColor: '#34d399', borderWidth: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: { title: { display: true, text: 'Trial' }, grid: { color: '#1a1d2a' } },
+        y: { title: { display: true, text: 'Latency (ms)' }, grid: { color: '#1a1d2a' },
+             position: 'left' },
+        y1: { title: { display: true, text: 'Throughput (qps)' }, grid: { drawOnChartArea: false },
+              position: 'right' },
+      },
+    },
+  });
+
+  memChart = new Chart($('#chart-mem'), {
+    type: 'bar',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Peak Memory (MB)', data: [],
+        backgroundColor: ctx => {
+          const v = ctx.raw;
+          if (v == null) return 'rgba(92,98,128,.2)';
+          return 'rgba(96,165,250,.55)';
+        },
+        borderColor: 'rgba(96,165,250,.7)',
+        borderWidth: 1, borderRadius: 4, maxBarThickness: 28,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'Trial' }, grid: { color: '#1a1d2a' } },
+        y: { title: { display: true, text: 'Memory (MB)' }, grid: { color: '#1a1d2a' }, beginAtZero: true },
+      },
+    },
+  });
+
+  scatterChart = new Chart($('#chart-scatter'), {
+    type: 'scatter',
+    data: {
+      datasets: [
+        { label: 'Feasible', data: [], backgroundColor: 'rgba(52,211,153,.7)', pointRadius: 6, pointHoverRadius: 8 },
+        { label: 'Infeasible', data: [], backgroundColor: 'rgba(251,191,36,.5)', pointRadius: 5, pointHoverRadius: 7 },
+        { label: 'Crashed', data: [], backgroundColor: 'rgba(248,113,113,.4)', pointRadius: 5, pointStyle: 'crossRot', pointHoverRadius: 7 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { title: { display: true, text: 'Latency p95 (ms)' }, grid: { color: '#1a1d2a' } },
+        y: { title: { display: true, text: 'Throughput (qps)' }, grid: { color: '#1a1d2a' } },
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const d = ctx.dataset.label;
+              return `${d}: ${ctx.parsed.x.toFixed(1)}ms / ${ctx.parsed.y.toFixed(1)} qps`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+/* ---- stats ---- */
+function updateStats(total, budget) {
+  const feasible = trialData.filter(t => t.feasible).length;
+  const crashed  = trialData.filter(t => t.crashed).length;
+
+  $('#sv-total').textContent = total;
+  $('#ss-total').textContent = `of ${budget}`;
+  $('#sv-feasible').textContent = feasible;
+  $('#ss-feasible').textContent = total ? `${(feasible/total*100).toFixed(0)}% rate` : '-';
+  $('#sv-crashed').textContent = crashed;
+  $('#ss-crashed').textContent = total ? `${(crashed/total*100).toFixed(0)}% rate` : '-';
+  if (bestObj != null) {
+    $('#sv-qps').textContent = bestObj.toFixed(1);
+    $('#ss-qps').textContent = 'qps';
+  }
+}
+
+/* ---- best config ---- */
+function updateBest(cfg, obj, trial) {
+  if (!cfg) return;
+  bestCfg = cfg; bestObj = obj;
+  show('#best-card');
+
+  const lat = trial ? (trial.latency_p95_ms != null ? trial.latency_p95_ms.toFixed(1) + ' ms' : '-') : '-';
+  const mem = trial ? (trial.memory_peak_mb != null ? Math.round(trial.memory_peak_mb) + ' MB' : '-') : '-';
+  const qps = obj != null ? obj.toFixed(1) + ' qps' : '-';
+
+  $('#best-badge').textContent = `trial #${trial ? trial.trial_id : '?'}`;
+  $('#best-grid').innerHTML = [
+    ['Backend', cfg.backend.replace('_', ' ')],
+    ['Quantization', cfg.quantization],
+    ['Batch Size', cfg.batch_size],
+    ['Threads', cfg.num_threads],
+    ['Latency p95', lat],
+    ['Memory', mem],
+    ['Throughput', qps],
+  ].map(([l,v]) => `<div class="best-metric"><div class="bm-value">${v}</div><div class="bm-label">${l}</div></div>`).join('');
+}
+
+/* ---- add trial ---- */
+function addTrial(t, budget) {
+  trialData.push(t);
+
+  // Table row
+  const cls = t.crashed ? 'row-crash' : t.feasible ? 'row-ok' : 'row-infeas';
+  const pill = t.crashed
+    ? '<span class="status-pill pill-crash">CRASH</span>'
+    : t.feasible
+      ? '<span class="status-pill pill-ok">OK</span>'
+      : '<span class="status-pill pill-infeas">INFEAS</span>';
+
+  const tr = document.createElement('tr');
+  tr.className = `${cls} anim-in`;
+  tr.innerHTML =
+    `<td>${t.trial_id}</td>` +
+    `<td>${t.config.backend}</td>` +
+    `<td>${t.config.quantization}</td>` +
+    `<td>${t.config.batch_size}</td>` +
+    `<td>${t.config.num_threads ?? '-'}</td>` +
+    `<td>${t.latency_p95_ms != null ? t.latency_p95_ms.toFixed(2) + ' ms' : '-'}</td>` +
+    `<td>${t.memory_peak_mb != null ? Math.round(t.memory_peak_mb) + ' MB' : '-'}</td>` +
+    `<td>${t.throughput_qps != null ? t.throughput_qps.toFixed(1) : '-'}</td>` +
+    `<td>${pill}</td>`;
+  $('#trial-tbody').prepend(tr);
+  $('#table-count').textContent = `${trialData.length} rows`;
+
+  // Perf chart
+  perfChart.data.labels.push(t.trial_id);
+  perfChart.data.datasets[0].data.push(t.crashed ? null : t.latency_p95_ms);
+  perfChart.data.datasets[1].data.push(t.crashed ? null : t.throughput_qps);
+  perfChart.update('none');
+
+  // Memory chart
+  memChart.data.labels.push(t.trial_id);
+  memChart.data.datasets[0].data.push(t.crashed ? null : t.memory_peak_mb);
+  memChart.update('none');
+
+  // Scatter chart
+  if (!t.crashed && t.latency_p95_ms != null && t.throughput_qps != null) {
+    const idx = t.feasible ? 0 : 1;
+    scatterChart.data.datasets[idx].data.push({ x: t.latency_p95_ms, y: t.throughput_qps });
+  } else if (t.crashed) {
+    // plot crashes at origin region
+  }
+  scatterChart.update('none');
+
+  updateStats(trialData.length, budget);
+}
+
+/* ---- highlight best row ---- */
+function highlightBest() {
+  document.querySelectorAll('tr.row-best').forEach(r => r.classList.remove('row-best'));
+  if (!bestCfg) return;
+  const rows = $('#trial-tbody').querySelectorAll('tr');
+  rows.forEach(r => {
+    const cells = r.querySelectorAll('td');
+    if (cells.length > 0 &&
+        cells[1].textContent === bestCfg.backend &&
+        cells[2].textContent === bestCfg.quantization &&
+        cells[3].textContent === String(bestCfg.batch_size) &&
+        cells[7].textContent !== '-' &&
+        r.classList.contains('row-ok')) {
+      r.classList.add('row-best');
+    }
+  });
+}
+
+/* ---- launch ---- */
+$('#launch-form').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  const body = {
+    model_name: $('#f-model').value,
+    max_latency_ms: parseUnit($('#f-latency').value, latTbl),
+    max_memory_mb: parseUnit($('#f-memory').value, memTbl),
+    gpu: $('#f-gpu').value,
+    budget: parseInt($('#f-budget').value),
+    objective: 'maximize_throughput',
+  };
+
+  $('#btn-go').disabled = true;
+  trialData = []; bestCfg = null; bestObj = null;
+
+  const res = await fetch('/optimize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const { job_id } = await res.json();
+
+  // Reset & show UI
+  hide('#empty-state');
+  show('#progress-card'); show('#stats-section'); show('#charts-section');
+  show('#scatter-section'); show('#table-card'); hide('#best-card');
+
+  $('#job-title').textContent = `Optimising ${body.model_name}`;
+  $('#trial-num').textContent = '0';
+  $('#trial-total').textContent = body.budget;
+  $('#progress-fill').style.width = '0%';
+  $('#trial-tbody').innerHTML = '';
+  $('#table-count').textContent = '0 rows';
+  $('#sv-total').textContent = '0';
+  $('#sv-feasible').textContent = '0';
+  $('#sv-crashed').textContent = '0';
+  $('#sv-qps').textContent = '-';
+
+  initCharts();
+
+  // WebSocket
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/${job_id}`);
+
+  const dot = $('#conn-dot');
+  $('#ws-status').textContent = 'connecting';
+
+  ws.onopen = () => {
+    $('#ws-status').textContent = 'live';
+    dot.className = 'conn-dot live';
+  };
+  ws.onclose = () => {
+    dot.className = 'conn-dot';
+    $('#btn-go').disabled = false;
+  };
+
+  ws.onmessage = evt => {
+    const msg = JSON.parse(evt.data);
+    if (msg.type === 'trial') {
+      addTrial(msg.trial, msg.total_budget);
+      const pct = (msg.trials_completed / msg.total_budget * 100).toFixed(0);
+      $('#progress-fill').style.width = pct + '%';
+      $('#trial-num').textContent = msg.trials_completed;
+
+      if (msg.best_config) {
+        const bestTrial = trialData.filter(t => t.feasible).sort((a,b) =>
+          (b.throughput_qps||0) - (a.throughput_qps||0))[0];
+        updateBest(msg.best_config, msg.best_objective, bestTrial);
+        highlightBest();
+      }
+    } else if (msg.type === 'done') {
+      $('#ws-status').textContent = 'done';
+      dot.className = 'conn-dot done';
+      $('#progress-fill').style.width = '100%';
+      $('#job-title').textContent = 'Optimisation Complete';
+      $('#btn-go').disabled = false;
+      if (msg.status && msg.status.best_config) {
+        const bestTrial = trialData.filter(t => t.feasible).sort((a,b) =>
+          (b.throughput_qps||0) - (a.throughput_qps||0))[0];
+        updateBest(msg.status.best_config, msg.status.best_objective, bestTrial);
+        highlightBest();
+      }
+    }
+  };
+});
+</script>
+</body>
+</html>
